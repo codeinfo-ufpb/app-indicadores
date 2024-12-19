@@ -1,20 +1,17 @@
-# bash: streamlit run dash/app_tcu.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import locale
 from millify import millify
-locale.setlocale(locale.LC_ALL, 'pt_BR')
 
 # Customizar a aba da janela do APP
-st.set_page_config(page_icon='dash/img/favicon.png', 
+st.set_page_config(page_icon='img/favicon.png', 
                    page_title='Indicadores de Gestão', layout='wide')
 
 # Cabeçalho do App
 a,b = st.columns(2)
 with a:
-    st.image('dash/img/logo-igt.png')
+    st.image('img/logo-igt.png')
     
 with st.expander('⛮ O que são os indicadores do TCU?'):
     st.markdown("""
@@ -69,11 +66,11 @@ with col2:
 # st.cache_data.clear() 
 @st.cache_data
 def load_data():
-    p = pd.read_pickle('dash/data/precos.pkl').query('mes==12')[['ano', 'ipca', 'igp', 'igpm']]
+    p = pd.read_pickle('data/precos.pkl').query('mes==12')[['ano', 'ipca', 'igp', 'igpm']]
     for x in ['ipca', 'igp', 'igpm']:
         p[x] = p[x]/float(p[x].iloc[-1])
 
-    df = (pd.read_pickle('dash/data/tcu.pkl', compression="gzip")
+    df = (pd.read_pickle('data/tcu.pkl', compression="gzip")
           .assign(rank = lambda x: x.groupby(['codigo', 'ano']).valor
                   .transform(lambda y: y.rank(method='min', ascending=False)).astype(int),
                   rank_m = lambda x: x.groupby(['codigo', 'ano'])['rank'].transform('max'),
@@ -90,7 +87,7 @@ list_tipo = d['tipo'].unique()
 list_ies = d.query('sg_ies!="UFPB"').sort_values('sg_ies')['sg_ies'].unique()
 
 with st.sidebar:
-    st.image('dash/img/logo-codeinfo.png')
+    st.image('img/logo-codeinfo.png')
     st.markdown("""---""") 
     st.markdown("""✇ ajustes""")
     uvalor = st.toggle('Correção Monetária', help=f"IPCA (período base: dez/{d.ano.max()})")
@@ -109,7 +106,6 @@ with st.sidebar:
 if utipo is not None:
     d = d[d.tipo==utipo]
     
-print(d)
 
 a,b = st.columns(2) 
 with a:
@@ -127,6 +123,11 @@ with st.expander(f'{utipo} da UFPB no ano de {uano}', True):
     r=r.rename(columns={'codigo':'Código', 'descricao':'Descrição', 'lrank':'Rank', 'valor':'Valor'})
     vmin, vmax = r.variacao.min(), r.variacao.max()
     r.sort_values('variacao', inplace=True)
+    
+    if vmin==vmax:
+        vmin=None
+        vmax=None
+    
     st.dataframe(r.style.format(thousands='.', decimal=',', precision=2), hide_index=True, use_container_width=True,
                  column_config={
                      'variacao': st.column_config.ProgressColumn("Variação", width='small', min_value=vmin, max_value=vmax),
@@ -142,13 +143,13 @@ with st.expander(f'{utipo} da UFPB no ano de {uano}', True):
         delta = float(r.variacao.tail(1).iloc[0])
         delta = f'{delta*100:.1f}%'
         v = f'{float(r.valor.tail(1).iloc[0]): .2f}'
-        st.metric('Último', millify(r.valor.tail(1), precision=2), delta=delta)
+        st.metric('Último', millify(float(r.valor.tail(1).iloc[0]), precision=2), delta=delta)
     with col2:
-        st.metric('Média', millify(r.valor.mean(), precision=2))
+        st.metric('Média', millify(float(r.valor.mean()), precision=2))
     with col3:
-        st.metric('Mínimo', millify(r.valor.min(), precision=2))
+        st.metric('Mínimo', millify(float(r.valor.min()), precision=2))
     with col4:
-        st.metric('Máximo', millify(r.valor.max(), precision=2))
+        st.metric('Máximo', millify(float(r.valor.max()), precision=2))
     
     fig = px.line(r, x='ano', y='valor', color='codigo', hover_data=['variavel'], markers=True, 
                   color_discrete_map={"variable": "blue", "Gold": "green"})
@@ -189,6 +190,9 @@ with st.expander(f'{utipo} da UFPB x Benchmark no ano de {uano}', True):
                         f'valor_{vcod}': upeer})
     r.sort_values(f'i{vcod}', inplace=True)
     vmin, vmax = r[f'i{vcod}'].min(), r[f'i{vcod}'].max()
+    if vmin==vmax:
+        vmin=None
+        vmax=None
     st.dataframe(r.style.format(thousands='.', decimal=',', precision=2), hide_index=True, use_container_width=True,
                  column_config={
                      f'i{vcod}': st.column_config.ProgressColumn("Diferença", width='small', min_value=vmin, max_value=vmax),
@@ -202,5 +206,5 @@ with st.expander(f'{utipo} da UFPB x Benchmark no ano de {uano}', True):
     fig = px.line(r, x='ano', y='value', color='variable', markers=True, color_discrete_map={"variable": "blue", "Gold": "green"})
     fig.add_vline(x=2014, line_width=1, line_dash="dash", line_color="gray")
     fig.add_vline(x=2019, line_width=1, line_dash="dash", line_color="gray")
-    # fig = px.bar(r, x='ano', y='value', color='variable', barmode="group", color_discrete_map={"variable": "blue", "Gold": "green"})
     st.plotly_chart(fig, use_container_width=True)
+
